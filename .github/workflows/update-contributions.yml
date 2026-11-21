@@ -20,6 +20,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Generate Contribution Snake SVGs (Light & Dark)
         uses: Platane/snk/svg-only@v3
         with:
@@ -28,17 +33,12 @@ jobs:
             dist/github-snake.svg
             dist/github-snake-dark.svg?palette=github-dark
 
-      - name: Generate 3D Isometric Contribution Lattice SVGs
-        uses: yoshi389111/github-profile-3d-contrib@latest
+      - name: Generate Animated 3D Phonon Crystal-Lattice SVGs (Light & Dark)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          USERNAME: ${{ github.repository_owner }}
-
-      - name: Stage 3D Contribution SVGs into dist/
         run: |
-          mkdir -p dist/profile-3d-contrib
-          cp -r profile-3d-contrib/* dist/profile-3d-contrib/
-          ls -la dist/ dist/profile-3d-contrib/
+          python3 scripts/generate_crystal_3d.py --user "${{ github.repository_owner }}" --outdir dist
+          ls -lh dist/
 
       - name: Deploy generated SVGs to isolated output branch
         uses: crazy-max/ghaction-github-pages@v4

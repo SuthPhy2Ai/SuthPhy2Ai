@@ -57,14 +57,14 @@ All interactive visualizers below run directly in the browser on GitHub Pages:
   </picture>
 </div>
 
-<details>
-<summary><b>🧊 Click to Expand — 3D Isometric Crystal-Lattice Contribution Wall</b></summary>
+<details open>
+<summary><b>🧊 3D Phonon Crystal-Lattice Contribution Field (Live Animated)</b></summary>
 <br />
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/SuthPhy2Ai/SuthPhy2Ai/output/profile-3d-contrib/profile-night-rainbow.svg" />
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/SuthPhy2Ai/SuthPhy2Ai/output/profile-3d-contrib/profile-green-animate.svg" />
-    <img alt="3D Isometric Contribution Lattice" src="https://raw.githubusercontent.com/SuthPhy2Ai/SuthPhy2Ai/output/profile-3d-contrib/profile-night-rainbow.svg" width="100%" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/SuthPhy2Ai/SuthPhy2Ai/output/crystal-lattice-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/SuthPhy2Ai/SuthPhy2Ai/output/crystal-lattice-light.svg" />
+    <img alt="3D Phonon Crystal-Lattice Contribution Field" src="https://raw.githubusercontent.com/SuthPhy2Ai/SuthPhy2Ai/output/crystal-lattice-dark.svg" width="100%" />
   </picture>
 </div>
 </details>
