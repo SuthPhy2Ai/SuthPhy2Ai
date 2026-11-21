@@ -1,213 +1,266 @@
 #!/usr/bin/env python3
 """
 Generate dark and light animated SVG hero banners for SuthPhy2Ai's GitHub Profile.
-Pure SVG 1.1 + SMIL/CSS animations (zero <script>, zero <foreignObject>, zero external assets),
-100% compatible with GitHub's camo.githubusercontent.com security proxy.
+Right-side visual is a direct pure-SVG port of DeePAW's OrbitalBackground.tsx:
+- 3 breathing radial-glow PAW nuclei (Cyan #0ea5e9, Indigo #6366f1, Rose #ec4899) with pinpoint cores
+- Zero wireframe orbit rings: ~34 pinpoint electrons swarming freely along softened-Coulomb
+  precessing rosettes & inter-nuclear exchange paths with short, delicate motion-blur wisps
+- Strong-field PAW core physics inside halo radius: high-frequency quantum jitter particles,
+  orthogonal glitch flashes, and flickering radial quantum-entanglement filaments.
 """
 
 from __future__ import annotations
 import math
+import random
 from pathlib import Path
 from xml.sax.saxutils import escape
 
 
-def rot_xyz(pt: tuple[float, float, float], rx_deg: float, ry_deg: float, rz_deg: float) -> tuple[float, float, float]:
-    x, y, z = pt
-    rx, ry, rz = map(math.radians, (rx_deg, ry_deg, rz_deg))
-
-    # Rotate around Y
-    x1 = x * math.cos(ry) + z * math.sin(ry)
-    y1 = y
-    z1 = -x * math.sin(ry) + z * math.cos(ry)
-
-    # Rotate around X
-    x2 = x1
-    y2 = y1 * math.cos(rx) - z1 * math.sin(rx)
-    z2 = y1 * math.sin(rx) + z1 * math.cos(rx)
-
-    # Rotate around Z
-    x3 = x2 * math.cos(rz) - y2 * math.sin(rz)
-    y3 = x2 * math.sin(rz) + y2 * math.cos(rz)
-    z3 = z2
-    return (x3, y3, z3)
+def sample_closed_curve(fn, n_pts: int = 96) -> str:
+    pts = [fn(i / n_pts) for i in range(n_pts)]
+    return f"M {pts[0][0]:.2f},{pts[0][1]:.2f} " + " ".join(f"L {x:.2f},{y:.2f}" for x, y in pts[1:]) + " Z"
 
 
-def build_orbital_paths(cx: float, cy: float, scale: float, tilt_deg: float = -24.0) -> tuple[str, str]:
-    """Compute analytical d_z2 spherical harmonic lobes (3*cos^2(theta) - 1) split into + and - phase paths."""
+def precessing_coulomb_path(
+    cx: float,
+    cy: float,
+    r_mean: float,
+    ecc: float,
+    lobes_num: int,
+    lobes_den: int,
+    tilt_deg: float,
+    ccw: bool = False,
+) -> str:
+    """
+    Exact closed periodic rosette orbit in DeePAW's softened potential V(r) = -k / sqrt(r^2 + a^2),
+    closing after `lobes_den` revolutions with `lobes_num` radial oscillations.
+    """
     tilt = math.radians(tilt_deg)
-    pos_pts_top = []
-    pos_pts_bot = []
-    neg_pts_left = []
-    neg_pts_right = []
+    ct, st = math.cos(tilt), math.sin(tilt)
+    total_ang = 2.0 * math.pi * lobes_den
+    n_pts = 72 * lobes_den
 
-    # In polar coords around axis `tilt`, 3*cos^2(t) - 1 = 0 at cos(t) = +/- 1/sqrt(3) => t0 ~ 54.7356 deg
-    t0 = math.acos(1.0 / math.sqrt(3.0))
+    def pt(u: float) -> tuple[float, float]:
+        theta = (-total_ang * u) if ccw else (total_ang * u)
+        r = r_mean * (1.0 - ecc * math.cos((lobes_num / lobes_den) * theta))
+        # Slight 3D perspective compression along minor axis
+        ex = r * math.cos(theta)
+        ey = r * 0.72 * math.sin(theta)
+        return (cx + ex * ct - ey * st, cy + ex * st + ey * ct)
 
-    def sample_lobe(t_start: float, t_end: float, steps: int = 48) -> str:
-        pts = [(cx, cy)]
-        for i in range(steps + 1):
-            t = t_start + (t_end - t_start) * (i / steps)
-            amp = abs(3.0 * (math.cos(t) ** 2) - 1.0) / 2.0  # normalized to [0, 1]
-            r = scale * amp
-            ang = t + tilt - math.pi / 2.0
-            px = cx + r * math.cos(ang)
-            py = cy + r * math.sin(ang)
-            pts.append((px, py))
-        pts.append((cx, cy))
-        return "M " + " L ".join(f"{x:.2f},{y:.2f}" for x, y in pts) + " Z"
-
-    pos_top = sample_lobe(-t0, t0)
-    pos_bot = sample_lobe(math.pi - t0, math.pi + t0)
-    neg_right = sample_lobe(t0, math.pi - t0)
-    neg_left = sample_lobe(math.pi + t0, 2.0 * math.pi - t0)
-    return f"{pos_top} {pos_bot}", f"{neg_right} {neg_left}"
+    return sample_closed_curve(pt, n_pts=n_pts)
 
 
-def build_crystal_svg(cx: float, cy: float, cell_half: float, theme: dict) -> str:
-    """Render depth-sorted 3D perovskite ABO3 unit cell + BO6 coordination octahedron + E(3) message pulses."""
-    rx, ry, rz = 21.0, -34.0, 7.0
+def exchange_orbit_path(
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    waist: float,
+    ccw: bool = False,
+) -> str:
+    """Smooth two-center valence electron exchange trajectory hopping between two PAW nuclei."""
+    mx, my = 0.5 * (p1[0] + p2[0]), 0.5 * (p1[1] + p2[1])
+    dx, dy = p2[0] - p1[0], p2[1] - p1[1]
+    half_d = 0.5 * math.hypot(dx, dy)
+    ux, uy = dx / (2.0 * half_d), dy / (2.0 * half_d)
+    nx, ny = -uy, ux
+    a = half_d * 1.28
 
-    def proj(p: tuple[float, float, float]) -> tuple[float, float, float]:
-        x, y, z = rot_xyz(p, rx, ry, rz)
-        return (cx + x * cell_half, cy - y * cell_half, z)
+    def pt(u: float) -> tuple[float, float]:
+        t = (-2.0 * math.pi * u) if ccw else (2.0 * math.pi * u)
+        denom = 1.0 + 0.52 * (math.sin(t) ** 2)
+        lx = a * math.cos(t) / denom
+        ly = waist * math.sin(t) * math.cos(t) / denom + 0.22 * waist * math.sin(t)
+        return (mx + lx * ux + ly * nx, my + lx * uy + ly * ny)
 
-    # 8 A-site corners at (+/-1, +/-1, +/-1)
-    corners_3d = [(sx, sy, sz) for sx in (-1.0, 1.0) for sy in (-1.0, 1.0) for sz in (-1.0, 1.0)]
-    corners_2d = {c: proj(c) for c in corners_3d}
+    return sample_closed_curve(pt, n_pts=100)
 
-    # 12 cube edges
-    cube_edges = []
-    for i, c1 in enumerate(corners_3d):
-        for c2 in corners_3d[i + 1 :]:
-            diff = sum(abs(a - b) > 1e-6 for a, b in zip(c1, c2))
-            if diff == 1:
-                p1, p2 = corners_2d[c1], corners_2d[c2]
-                z_mid = 0.5 * (p1[2] + p2[2])
-                cube_edges.append((z_mid, p1, p2))
-    cube_edges.sort(key=lambda item: item[0])
 
-    # 6 face-centered O-sites forming BO6 octahedron
-    oct_3d = [
-        (1.0, 0.0, 0.0),
-        (-1.0, 0.0, 0.0),
-        (0.0, 1.0, 0.0),
-        (0.0, -1.0, 0.0),
-        (0.0, 0.0, 1.0),
-        (0.0, 0.0, -1.0),
+def render_electron_particle(
+    path_d: str,
+    color: str,
+    dot_size: float,
+    dur_s: float,
+    phase_frac: float,
+    wisp_len: float = 34.0,
+    wisp_op: float = 0.34,
+) -> str:
+    """
+    Render a single pinpoint electron + delicate short motion-blur wisp (matching Canvas rgba fade in DeePAW),
+    with ZERO visible orbit wireframe ring.
+    """
+    s0 = (phase_frac % 1.0) * 1000.0
+
+    def anim_dash(seg_len: float) -> str:
+        off_start = seg_len - s0
+        off_end = off_start - 1000.0
+        return (
+            f'stroke-dasharray="{seg_len:.2f} {1000.0 - seg_len:.2f}" '
+            f'stroke-dashoffset="{off_start:.2f}">'
+            f'<animate attributeName="stroke-dashoffset" from="{off_start:.2f}" to="{off_end:.2f}" '
+            f'dur="{dur_s:.2f}s" repeatCount="indefinite" />'
+        )
+
+    mid_len = wisp_len * 0.36
+    return (
+        f'<path d="{path_d}" pathLength="1000" fill="none" stroke="{color}" stroke-opacity="{wisp_op * 0.55:.2f}" '
+        f'stroke-width="{dot_size * 0.52:.2f}" stroke-linecap="round" {anim_dash(wisp_len)}</path>\n      '
+        f'<path d="{path_d}" pathLength="1000" fill="none" stroke="{color}" stroke-opacity="{wisp_op:.2f}" '
+        f'stroke-width="{dot_size * 0.78:.2f}" stroke-linecap="round" {anim_dash(mid_len)}</path>\n      '
+        f'<path d="{path_d}" pathLength="1000" fill="none" stroke="{color}" stroke-opacity="0.96" '
+        f'stroke-width="{dot_size:.2f}" stroke-linecap="round" {anim_dash(0.5)}</path>'
+    )
+
+
+def build_deepaw_orbital_svg(mode: str) -> str:
+    """Port DeePAW's OrbitalBackground.tsx (3 breathing nuclei + swarming electrons + core jitter/glitch/entanglement)."""
+    rng = random.Random(20261121)
+    is_dark = mode == "dark"
+
+    # 3 PAW atomic centers scaled to the right-side viewport (x = 640..985, y = 12..272)
+    n0 = (806.0, 144.0)  # Center primary cyan PAW atom (r_halo = 86)
+    n1 = (926.0, 64.0)   # Upper-right indigo atom (r_halo = 48)
+    n2 = (706.0, 222.0)  # Lower-left rose-pink atom (r_halo = 52)
+
+    palette = ["#38bdf8", "#818cf8", "#22d3ee"] if is_dark else ["#0284c7", "#4f46e5", "#0891b2"]
+    core_spark_col = "#ffffff" if is_dark else "#0369a1"
+    glitch_col = "#ffffff" if is_dark else "#0284c7"
+    entangle_col = "#38bdf8" if is_dark else "#0284c7"
+    core_dot_fill = "#f0f9ff" if is_dark else "#ffffff"
+    wisp_op = 0.42 if is_dark else 0.46
+
+    elems: list[str] = []
+
+    # 1. Three Breathing & Gently Drifting PAW Nuclei (exact port of OrbitalBackground.tsx lines 416-456)
+    nuclei_cfg = [
+        ("pawHaloCyan", n0, 88.0, 4.4, "0s", "#0ea5e9", 4.6),
+        ("pawHaloIndigo", n1, 48.0, 3.3, "-1.2s", "#6366f1", 3.2),
+        ("pawHaloRose", n2, 54.0, 3.8, "-2.4s", "#ec4899", 3.5),
     ]
-    oct_2d = [proj(p) for p in oct_3d]
-    center_2d = proj((0.0, 0.0, 0.0))
-
-    # 8 triangular facets of octahedron: (+/-x, +/-y, +/-z)
-    oct_map = {p: proj(p) for p in oct_3d}
-    facets = []
-    for sx in (-1.0, 1.0):
-        for sy in (-1.0, 1.0):
-            for sz in (-1.0, 1.0):
-                p_x = oct_map[(sx, 0.0, 0.0)]
-                p_y = oct_map[(0.0, sy, 0.0)]
-                p_z = oct_map[(0.0, 0.0, sz)]
-                z_avg = (p_x[2] + p_y[2] + p_z[2]) / 3.0
-                facets.append((z_avg, p_x, p_y, p_z))
-    facets.sort(key=lambda f: f[0])
-
-    lines: list[str] = []
-
-    # 1. Back half of unit cell wireframe
-    for z_mid, p1, p2 in cube_edges[:6]:
-        lines.append(
-            f'<line x1="{p1[0]:.2f}" y1="{p1[1]:.2f}" x2="{p2[0]:.2f}" y2="{p2[1]:.2f}" '
-            f'stroke="{theme["cell_back"]}" stroke-width="1.1" stroke-dasharray="3 3" />'
+    for grad_id, (nx, ny), r_base, dur_b, begin_b, glow_c, r_pin in nuclei_cfg:
+        r_lo, r_hi = r_base * 0.90, r_base * 1.11
+        elems.append(
+            f'<g>'
+            f'<animateTransform attributeName="transform" type="translate" '
+            f'values="0,0; 4,-3; -3,2.5; 0,0" dur="{dur_b * 1.7:.1f}s" begin="{begin_b}" repeatCount="indefinite" />'
+            f'<circle cx="{nx:.1f}" cy="{ny:.1f}" r="{r_base:.1f}" fill="url(#{grad_id})">'
+            f'<animate attributeName="r" values="{r_lo:.1f};{r_hi:.1f};{r_lo:.1f}" dur="{dur_b:.1f}s" begin="{begin_b}" repeatCount="indefinite" />'
+            f'<animate attributeName="opacity" values="0.72;1.0;0.72" dur="{dur_b:.1f}s" begin="{begin_b}" repeatCount="indefinite" />'
+            f'</circle>'
+            f'<circle cx="{nx:.1f}" cy="{ny:.1f}" r="{r_pin * 2.6:.1f}" fill="{glow_c}" opacity="{0.42 if is_dark else 0.30}">'
+            f'<animate attributeName="r" values="{r_pin * 2.0:.1f};{r_pin * 3.3:.1f};{r_pin * 2.0:.1f}" dur="{dur_b:.1f}s" begin="{begin_b}" repeatCount="indefinite" />'
+            f'</circle>'
+            f'<circle cx="{nx:.1f}" cy="{ny:.1f}" r="{r_pin:.1f}" fill="{core_dot_fill}" />'
+            f'</g>'
         )
 
-    # 2. Back A-site corner atoms (z < 0)
-    for c, (px, py, pz) in sorted(corners_2d.items(), key=lambda kv: kv[1][2]):
-        if pz < 0:
-            lines.append(
-                f'<circle cx="{px:.2f}" cy="{py:.2f}" r="3.6" fill="{theme["atom_a_back"]}" '
-                f'stroke="{theme["atom_stroke"]}" stroke-width="0.8" opacity="0.72" />'
-            )
+    # 2. Outer & Mid-Field Swarming Valence Electrons (NO wireframe tracks, pinpoint dots + subtle motion wisps)
+    # 20 electrons around Primary Nucleus n0
+    for i in range(20):
+        r_m = 46.0 + (i / 19.0) * 76.0 + rng.uniform(-4.0, 4.0)
+        ecc = rng.uniform(0.12, 0.34)
+        l_num, l_den = [(1, 1), (3, 2), (2, 1), (4, 3)][i % 4]
+        tilt = (i * 37.0 + rng.uniform(-10.0, 10.0)) % 180.0 - 90.0
+        ccw = (i % 2 == 1)
+        col = palette[i % len(palette)]
+        dot_sz = rng.uniform(2.1, 3.6)
+        # Kepler-like scaling: inner electrons orbit faster than outer electrons
+        dur_orb = (2.2 + 0.028 * r_m) * l_den
+        ph = (i * 0.173 + rng.uniform(0.0, 0.08)) % 1.0
+        wisp = max(18.0, 42.0 / l_den)
+        pd = precessing_coulomb_path(n0[0], n0[1], r_m, ecc, l_num, l_den, tilt, ccw=ccw)
+        elems.append(render_electron_particle(pd, col, dot_sz, dur_orb, ph, wisp_len=wisp, wisp_op=wisp_op))
 
-    # 3. Back facets of BO6 octahedron
-    for z_avg, p1, p2, p3 in facets[:4]:
-        pts_str = f"{p1[0]:.2f},{p1[1]:.2f} {p2[0]:.2f},{p2[1]:.2f} {p3[0]:.2f},{p3[1]:.2f}"
-        lines.append(
-            f'<polygon points="{pts_str}" fill="{theme["oct_fill_back"]}" '
-            f'stroke="{theme["oct_edge"]}" stroke-width="0.9" stroke-linejoin="round" />'
-        )
+    # 6 electrons around Indigo Nucleus n1 & 6 around Rose Nucleus n2
+    for sat_idx, (snx, sny) in enumerate([n1, n2]):
+        for j in range(6):
+            r_m = 20.0 + j * 5.8
+            ecc = rng.uniform(0.10, 0.28)
+            tilt = j * 31.0 - 60.0
+            ccw = ((j + sat_idx) % 2 == 0)
+            col = palette[(j + sat_idx) % len(palette)]
+            dot_sz = rng.uniform(1.9, 3.0)
+            dur_orb = 1.65 + 0.03 * r_m
+            ph = (j * 0.21 + sat_idx * 0.13) % 1.0
+            pd = precessing_coulomb_path(snx, sny, r_m, ecc, 1, 1, tilt, ccw=ccw)
+            elems.append(render_electron_particle(pd, col, dot_sz, dur_orb, ph, wisp_len=44.0, wisp_op=wisp_op))
 
-    # 4. B-O coordination bonds + animated E(3) message-passing pulses
-    for idx, (ox, oy, oz) in enumerate(oct_2d):
-        lines.append(
-            f'<line x1="{center_2d[0]:.2f}" y1="{center_2d[1]:.2f}" x2="{ox:.2f}" y2="{oy:.2f}" '
-            f'stroke="{theme["bond"]}" stroke-width="1.5" stroke-opacity="0.85" />'
+    # 4 Dynamic Exchange Electrons hopping between nuclei (Feature 2 of OrbitalBackground.tsx)
+    exchanges = [
+        (n0, n1, 28.0, False, palette[0], 3.8, 0.14),
+        (n0, n1, 20.0, True, palette[1], 4.3, 0.64),
+        (n0, n2, 30.0, True, palette[2], 4.1, 0.37),
+        (n0, n2, 22.0, False, "#f472b6" if is_dark else "#db2777", 4.6, 0.83),
+    ]
+    for pa, pb, wst, ccw, col, dur_x, ph_x in exchanges:
+        pd = exchange_orbit_path(pa, pb, waist=wst, ccw=ccw)
+        elems.append(render_electron_particle(pd, col, 3.2, dur_x, ph_x, wisp_len=36.0, wisp_op=wisp_op * 1.1))
+
+    # 3. Strong-Field Inner-Core Jittering Electrons + Quantum Entanglement Lines + Glitch Crosshairs
+    # (Exact port of OrbitalBackground.tsx lines 496-559: `shouldJitter = inGlowRadius`)
+    for k in range(7):
+        base_ang = k * (2.0 * math.pi / 7.0)
+        r_core = 14.0 + (k % 3) * 8.5
+        n_kf = 16
+        xs, ys, line_ops = [], [], []
+        for step in range(n_kf):
+            ang = base_ang + 2.0 * math.pi * (step / n_kf)
+            # Exponential strong-field jitter shake inside r_PAW
+            jx = rng.uniform(-6.5, 6.5)
+            jy = rng.uniform(-6.5, 6.5)
+            px = n0[0] + r_core * math.cos(ang) + jx
+            py = n0[1] + r_core * math.sin(ang) + jy
+            xs.append(f"{px:.1f}")
+            ys.append(f"{py:.1f}")
+            line_ops.append("0.62" if (step + k * 2) % 6 == 0 else "0")
+        xs.append(xs[0])
+        ys.append(ys[0])
+        line_ops.append(line_ops[0])
+
+        dur_j = 1.05 + k * 0.14
+        xs_str = ";".join(xs)
+        ys_str = ";".join(ys)
+        ops_str = ";".join(line_ops)
+        col_j = core_spark_col if k % 2 == 0 else palette[k % len(palette)]
+
+        # Flickering quantum entanglement line connecting nucleus center to jittering core electron
+        elems.append(
+            f'<line x1="{n0[0]:.1f}" y1="{n0[1]:.1f}" x2="{xs[0]}" y2="{ys[0]}" '
+            f'stroke="{entangle_col}" stroke-width="0.85" opacity="0">'
+            f'<animate attributeName="x2" values="{xs_str}" dur="{dur_j:.2f}s" repeatCount="indefinite" />'
+            f'<animate attributeName="y2" values="{ys_str}" dur="{dur_j:.2f}s" repeatCount="indefinite" />'
+            f'<animate attributeName="opacity" values="{ops_str}" dur="{dur_j:.2f}s" repeatCount="indefinite" />'
+            f'</line>'
         )
-        delay = f"{idx * 0.45:.2f}s"
-        lines.append(
-            f'<circle r="2.4" fill="{theme["pulse"]}">'
-            f'<animate attributeName="cx" values="{center_2d[0]:.2f};{ox:.2f};{center_2d[0]:.2f}" '
-            f'dur="2.8s" begin="{delay}" repeatCount="indefinite" />'
-            f'<animate attributeName="cy" values="{center_2d[1]:.2f};{oy:.2f};{center_2d[1]:.2f}" '
-            f'dur="2.8s" begin="{delay}" repeatCount="indefinite" />'
-            f'<animate attributeName="opacity" values="0.95;0.35;0.95" '
-            f'dur="2.8s" begin="{delay}" repeatCount="indefinite" />'
+        # Jittering core electron particle
+        elems.append(
+            f'<circle cx="{xs[0]}" cy="{ys[0]}" r="{1.9 if k % 2 == 0 else 1.6}" fill="{col_j}">'
+            f'<animate attributeName="cx" values="{xs_str}" dur="{dur_j:.2f}s" repeatCount="indefinite" />'
+            f'<animate attributeName="cy" values="{ys_str}" dur="{dur_j:.2f}s" repeatCount="indefinite" />'
             f'</circle>'
         )
 
-    # 5. Central B-site transition metal atom (with subtle breathing halo)
-    lines.append(
-        f'<circle cx="{center_2d[0]:.2f}" cy="{center_2d[1]:.2f}" r="11" fill="{theme["atom_b_glow"]}" opacity="0.35">'
-        f'<animate attributeName="r" values="9;14;9" dur="3.2s" repeatCount="indefinite" />'
-        f'<animate attributeName="opacity" values="0.45;0.15;0.45" dur="3.2s" repeatCount="indefinite" />'
-        f'</circle>'
-    )
-    lines.append(
-        f'<circle cx="{center_2d[0]:.2f}" cy="{center_2d[1]:.2f}" r="6.5" fill="url(#gradAtomB)" '
-        f'stroke="{theme["atom_b_ring"]}" stroke-width="1.2" />'
-    )
-
-    # 6. Front facets of BO6 octahedron
-    for z_avg, p1, p2, p3 in facets[4:]:
-        pts_str = f"{p1[0]:.2f},{p1[1]:.2f} {p2[0]:.2f},{p2[1]:.2f} {p3[0]:.2f},{p3[1]:.2f}"
-        lines.append(
-            f'<polygon points="{pts_str}" fill="{theme["oct_fill_front"]}" '
-            f'stroke="{theme["oct_edge_front"]}" stroke-width="1.15" stroke-linejoin="round" />'
+    # High-field orthogonal glitch streaks inside central PAW core (OrbitalBackground.tsx lines 515-527)
+    for g_idx in range(6):
+        ang = rng.uniform(0, 2.0 * math.pi)
+        rad = rng.uniform(8.0, 28.0)
+        gx = n0[0] + rad * math.cos(ang)
+        gy = n0[1] + rad * math.sin(ang)
+        horiz = (g_idx % 2 == 0)
+        gw = rng.uniform(12.0, 24.0) if horiz else 1.1
+        gh = 1.1 if horiz else rng.uniform(12.0, 22.0)
+        dur_g = 1.5 + g_idx * 0.31
+        beg_g = f"-{g_idx * 0.42:.2f}s"
+        elems.append(
+            f'<rect x="{gx - gw / 2:.1f}" y="{gy - gh / 2:.1f}" width="{gw:.1f}" height="{gh:.1f}" '
+            f'fill="{glitch_col}" opacity="0">'
+            f'<animate attributeName="opacity" values="0;0;0.75;0;0;0;0" dur="{dur_g:.2f}s" begin="{beg_g}" repeatCount="indefinite" />'
+            f'</rect>'
         )
 
-    # 7. All 6 O-site coordination atoms sorted by depth
-    for ox, oy, oz in sorted(oct_2d, key=lambda p: p[2]):
-        r_o = 4.6 if oz >= 0 else 3.9
-        op_o = 0.98 if oz >= 0 else 0.80
-        lines.append(
-            f'<circle cx="{ox:.2f}" cy="{oy:.2f}" r="{r_o}" fill="url(#gradAtomO)" '
-            f'stroke="{theme["atom_stroke"]}" stroke-width="0.9" opacity="{op_o}" />'
-        )
-
-    # 8. Front half of unit cell wireframe
-    for z_mid, p1, p2 in cube_edges[6:]:
-        lines.append(
-            f'<line x1="{p1[0]:.2f}" y1="{p1[1]:.2f}" x2="{p2[0]:.2f}" y2="{p2[1]:.2f}" '
-            f'stroke="{theme["cell_front"]}" stroke-width="1.35" />'
-        )
-
-    # 9. Front A-site corner atoms (z >= 0)
-    for c, (px, py, pz) in sorted(corners_2d.items(), key=lambda kv: kv[1][2]):
-        if pz >= 0:
-            lines.append(
-                f'<circle cx="{px:.2f}" cy="{py:.2f}" r="4.3" fill="url(#gradAtomA)" '
-                f'stroke="{theme["atom_stroke"]}" stroke-width="0.95" />'
-            )
-
-    return "\n    ".join(lines)
+    return "\n    ".join(elems)
 
 
 def build_typewriter_svg(x_text: float, y_text: float, theme: dict) -> tuple[str, str]:
-    """
-    Build pure-SVG 3-line cycling typewriter animation using <clipPath> + SMIL <animate>.
-    Total cycle = 15s (5s per line).
-    Line 0 starts fully typed at t=0 (holds 0..2.7s, erases 2.7..3.4s, re-types 13.5..15.0s)
-    so static thumbnail renderers at t=0 show full text + cursor while live SMIL loops seamlessly!
-    """
     taglines = [
         "Teaching E(3)-equivariant GNNs crystallographic symmetry",
         "Sub-angstrom PAW charge density & electrostatic landscapes",
@@ -220,19 +273,16 @@ def build_typewriter_svg(x_text: float, y_text: float, theme: dict) -> tuple[str
     nodes_out = []
 
     schedules = [
-        # Line 0: full at t=0..2.7s, erase by 3.35s, stay 0 until 13.5s, type 13.5..15.0s -> full at 15s (=0s)
         (
             ["0", "0.1800", "0.2233", "0.9000", "0.9001", "1"],
             lambda w: [f"{w:.1f}", f"{w:.1f}", "0", "0", "0", f"{w:.1f}"],
             ["0.95", "0.95", "0", "0", "0.95", "0.95"],
         ),
-        # Line 1: type 3.5..5.0s (0.2333..0.3333), hold 5.0..7.7s (..0.5133), erase by 8.35s (0.5567)
         (
             ["0", "0.2332", "0.2333", "0.3333", "0.5133", "0.5567", "1"],
             lambda w: ["0", "0", "0", f"{w:.1f}", f"{w:.1f}", "0", "0"],
             ["0", "0", "0.95", "0.95", "0.95", "0", "0"],
         ),
-        # Line 2: type 8.5..10.0s (0.5667..0.6667), hold 10.0..12.7s (..0.8467), erase by 13.35s (0.8900)
         (
             ["0", "0.5666", "0.5667", "0.6667", "0.8467", "0.8900", "1"],
             lambda w: ["0", "0", "0", f"{w:.1f}", f"{w:.1f}", "0", "0"],
@@ -270,7 +320,6 @@ def build_typewriter_svg(x_text: float, y_text: float, theme: dict) -> tuple[str
             f'</g>'
         )
 
-        # Synced cursor for active window
         nodes_out.append(
             f'<rect x="{init_x}" y="{y_text - 12.5:.1f}" width="7.5" height="15" rx="1.5" fill="{theme["cursor"]}" opacity="{init_op}">'
             f'<animate attributeName="x" dur="{total_dur:.0f}s" repeatCount="indefinite" '
@@ -286,71 +335,46 @@ def build_typewriter_svg(x_text: float, y_text: float, theme: dict) -> tuple[str
 def generate_svg(mode: str) -> str:
     if mode == "dark":
         theme = {
-            "bg1": "#080d1a",
-            "bg2": "#0f172a",
-            "bg3": "#131c33",
+            "bg1": "#020617",
+            "bg2": "#071024",
+            "bg3": "#0c1730",
             "border": "#1e293b",
             "grid": "#38bdf8",
-            "grid_op": "0.055",
-            "glow1": "#0ea5e9",
-            "glow1_op": "0.18",
-            "glow2": "#8b5cf6",
-            "glow2_op": "0.14",
-            "pill_bg": "#111c33",
+            "grid_op": "0.04",
+            "pill_bg": "#0f1b33",
             "pill_border": "#1e3a5f",
             "pill_text": "#7dd3fc",
             "dot": "#34d399",
             "name": "#f8fafc",
             "handle": "#38bdf8",
             "subtitle": "#cbd5e1",
-            "term_bg": "#09101f",
+            "term_bg": "#060d1d",
             "term_border": "#1e293b",
             "prompt": "#34d399",
             "term_text": "#e2e8f0",
             "cursor": "#38bdf8",
-            "chip_bg": "#111b2e",
-            "chip_border": "#233554",
+            "chip_bg": "#0d182c",
+            "chip_border": "#1e3252",
             "chip_text": "#94a3b8",
             "chip_accent": "#38bdf8",
-            "ring_outer": "#38bdf8",
-            "ring_inner": "#a78bfa",
-            "lobe_pos_1": "#38bdf8",
-            "lobe_pos_2": "#0284c7",
-            "lobe_neg_1": "#c084fc",
-            "lobe_neg_2": "#7c3aed",
-            "cell_back": "#475569",
-            "cell_front": "#64748b",
-            "oct_fill_back": "rgba(14, 165, 233, 0.10)",
-            "oct_fill_front": "rgba(56, 189, 248, 0.17)",
-            "oct_edge": "rgba(56, 189, 248, 0.35)",
-            "oct_edge_front": "rgba(125, 211, 252, 0.65)",
-            "bond": "#38bdf8",
-            "pulse": "#fde047",
-            "atom_b_1": "#e0f2fe",
-            "atom_b_2": "#0284c7",
-            "atom_b_glow": "#38bdf8",
-            "atom_b_ring": "#bae6fd",
-            "atom_o_1": "#ddd6fe",
-            "atom_o_2": "#7c3aed",
-            "atom_a_1": "#cbd5e1",
-            "atom_a_2": "#475569",
-            "atom_a_back": "#64748b",
-            "atom_stroke": "#0f172a",
-            "formula": "#94a3b8",
-            "formula_hi": "#7dd3fc",
+            "halo_cyan_0": "#0ea5e9",
+            "halo_cyan_op0": "0.72",
+            "halo_cyan_op1": "0.24",
+            "halo_ind_0": "#6366f1",
+            "halo_ind_op0": "0.65",
+            "halo_ind_op1": "0.20",
+            "halo_rose_0": "#ec4899",
+            "halo_rose_op0": "0.58",
+            "halo_rose_op1": "0.18",
         }
     else:
         theme = {
             "bg1": "#f8fafc",
             "bg2": "#f1f5f9",
-            "bg3": "#eef2ff",
+            "bg3": "#e8f0fe",
             "border": "#cbd5e1",
             "grid": "#0284c7",
-            "grid_op": "0.065",
-            "glow1": "#0284c7",
-            "glow1_op": "0.11",
-            "glow2": "#7c3aed",
-            "glow2_op": "0.09",
+            "grid_op": "0.05",
             "pill_bg": "#e0f2fe",
             "pill_border": "#bae6fd",
             "pill_text": "#0369a1",
@@ -367,52 +391,20 @@ def generate_svg(mode: str) -> str:
             "chip_border": "#cbd5e1",
             "chip_text": "#475569",
             "chip_accent": "#0284c7",
-            "ring_outer": "#0284c7",
-            "ring_inner": "#7c3aed",
-            "lobe_pos_1": "#0ea5e9",
-            "lobe_pos_2": "#0369a1",
-            "lobe_neg_1": "#a855f7",
-            "lobe_neg_2": "#6d28d9",
-            "cell_back": "#94a3b8",
-            "cell_front": "#475569",
-            "oct_fill_back": "rgba(2, 132, 199, 0.09)",
-            "oct_fill_front": "rgba(14, 165, 233, 0.16)",
-            "oct_edge": "rgba(2, 132, 199, 0.35)",
-            "oct_edge_front": "rgba(3, 105, 161, 0.65)",
-            "bond": "#0284c7",
-            "pulse": "#f59e0b",
-            "atom_b_1": "#bae6fd",
-            "atom_b_2": "#0369a1",
-            "atom_b_glow": "#0ea5e9",
-            "atom_b_ring": "#0284c7",
-            "atom_o_1": "#ede9fe",
-            "atom_o_2": "#6d28d9",
-            "atom_a_1": "#f1f5f9",
-            "atom_a_2": "#475569",
-            "atom_a_back": "#94a3b8",
-            "atom_stroke": "#ffffff",
-            "formula": "#475569",
-            "formula_hi": "#0369a1",
+            "halo_cyan_0": "#0ea5e9",
+            "halo_cyan_op0": "0.48",
+            "halo_cyan_op1": "0.16",
+            "halo_ind_0": "#6366f1",
+            "halo_ind_op0": "0.42",
+            "halo_ind_op1": "0.14",
+            "halo_rose_0": "#ec4899",
+            "halo_rose_op0": "0.38",
+            "halo_rose_op1": "0.12",
         }
 
-    cx, cy = 812.0, 138.0
-    pos_lobe_path, neg_lobe_path = build_orbital_paths(cx, cy, scale=96.0, tilt_deg=-24.0)
-    crystal_markup = build_crystal_svg(cx, cy, cell_half=45.0, theme=theme)
+    orbital_markup = build_deepaw_orbital_svg(mode)
     type_defs, type_nodes = build_typewriter_svg(x_text=74.0, y_text=192.0, theme=theme)
 
-    # Bragg spots around reciprocal ring r = 108
-    bragg_nodes = []
-    for k in range(6):
-        ang = math.radians(k * 60.0 + 15.0)
-        bx = cx + 108.0 * math.cos(ang)
-        by = cy + 108.0 * math.sin(ang)
-        r_b = 2.6 if k % 2 == 0 else 2.0
-        bragg_nodes.append(
-            f'<circle cx="{bx:.2f}" cy="{by:.2f}" r="{r_b}" fill="{theme["ring_outer"]}" opacity="0.75" />'
-        )
-    bragg_str = "\n      ".join(bragg_nodes)
-
-    # Research chips
     chips = [
         ("E(3)-Equivariant GNN", 158),
         ("PAW Charge Density", 150),
@@ -441,44 +433,27 @@ def generate_svg(mode: str) -> str:
       <stop offset="100%" stop-color="{theme["bg3"]}" />
     </linearGradient>
 
-    <radialGradient id="ambientCyan" cx="81%" cy="48%" r="26%">
-      <stop offset="0%" stop-color="{theme["glow1"]}" stop-opacity="{theme["glow1_op"]}" />
-      <stop offset="100%" stop-color="{theme["glow1"]}" stop-opacity="0" />
+    <radialGradient id="pawHaloCyan" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="{theme["halo_cyan_0"]}" stop-opacity="{theme["halo_cyan_op0"]}" />
+      <stop offset="40%" stop-color="{theme["halo_cyan_0"]}" stop-opacity="{theme["halo_cyan_op1"]}" />
+      <stop offset="100%" stop-color="{theme["halo_cyan_0"]}" stop-opacity="0" />
     </radialGradient>
 
-    <radialGradient id="ambientViolet" cx="76%" cy="54%" r="22%">
-      <stop offset="0%" stop-color="{theme["glow2"]}" stop-opacity="{theme["glow2_op"]}" />
-      <stop offset="100%" stop-color="{theme["glow2"]}" stop-opacity="0" />
+    <radialGradient id="pawHaloIndigo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="{theme["halo_ind_0"]}" stop-opacity="{theme["halo_ind_op0"]}" />
+      <stop offset="40%" stop-color="{theme["halo_ind_0"]}" stop-opacity="{theme["halo_ind_op1"]}" />
+      <stop offset="100%" stop-color="{theme["halo_ind_0"]}" stop-opacity="0" />
+    </radialGradient>
+
+    <radialGradient id="pawHaloRose" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="{theme["halo_rose_0"]}" stop-opacity="{theme["halo_rose_op0"]}" />
+      <stop offset="40%" stop-color="{theme["halo_rose_0"]}" stop-opacity="{theme["halo_rose_op1"]}" />
+      <stop offset="100%" stop-color="{theme["halo_rose_0"]}" stop-opacity="0" />
     </radialGradient>
 
     <pattern id="crystGrid" width="36" height="36" patternUnits="userSpaceOnUse">
       <path d="M 36 0 L 0 0 0 36" fill="none" stroke="{theme["grid"]}" stroke-opacity="{theme["grid_op"]}" stroke-width="0.9" />
     </pattern>
-
-    <linearGradient id="lobePosGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="{theme["lobe_pos_1"]}" stop-opacity="0.34" />
-      <stop offset="100%" stop-color="{theme["lobe_pos_2"]}" stop-opacity="0.10" />
-    </linearGradient>
-
-    <linearGradient id="lobeNegGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="{theme["lobe_neg_1"]}" stop-opacity="0.30" />
-      <stop offset="100%" stop-color="{theme["lobe_neg_2"]}" stop-opacity="0.08" />
-    </linearGradient>
-
-    <radialGradient id="gradAtomB" cx="35%" cy="35%" r="65%">
-      <stop offset="0%" stop-color="{theme["atom_b_1"]}" />
-      <stop offset="100%" stop-color="{theme["atom_b_2"]}" />
-    </radialGradient>
-
-    <radialGradient id="gradAtomO" cx="35%" cy="35%" r="65%">
-      <stop offset="0%" stop-color="{theme["atom_o_1"]}" />
-      <stop offset="100%" stop-color="{theme["atom_o_2"]}" />
-    </radialGradient>
-
-    <radialGradient id="gradAtomA" cx="35%" cy="35%" r="65%">
-      <stop offset="0%" stop-color="{theme["atom_a_1"]}" />
-      <stop offset="100%" stop-color="{theme["atom_a_2"]}" />
-    </radialGradient>
 
     <clipPath id="cardClip">
       <rect x="1" y="1" width="998" height="282" rx="16" />
@@ -488,13 +463,15 @@ def generate_svg(mode: str) -> str:
   </defs>
 
   <g clip-path="url(#cardClip)">
-    <!-- Background & crystallographic lattice grid -->
     <rect x="1" y="1" width="998" height="282" rx="16" fill="url(#bgGrad)" />
     <rect x="1" y="1" width="998" height="282" fill="url(#crystGrid)" />
-    <rect x="1" y="1" width="998" height="282" fill="url(#ambientCyan)" />
-    <rect x="1" y="1" width="998" height="282" fill="url(#ambientViolet)" />
 
-    <!-- Top affiliation pill -->
+    <!-- Right Visual: DeePAW Multi-Nucleus Electron Swarm & PAW Strong-Field Core -->
+    <g>
+      {orbital_markup}
+    </g>
+
+    <!-- Left Typography & Terminal -->
     <rect x="46" y="34" width="358" height="26" rx="13" fill="{theme["pill_bg"]}" stroke="{theme["pill_border"]}" stroke-width="1" />
     <circle cx="62" cy="47" r="6" fill="{theme["dot"]}" opacity="0.25">
       <animate attributeName="r" values="4;8;4" dur="2.4s" repeatCount="indefinite" />
@@ -503,55 +480,18 @@ def generate_svg(mode: str) -> str:
     <circle cx="62" cy="47" r="3.6" fill="{theme["dot"]}" />
     <text x="75" y="51" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="600" letter-spacing="0.6" fill="{theme["pill_text"]}">SHANGHAI UNIVERSITY · MATERIALS INFORMATICS</text>
 
-    <!-- Name & GitHub handle -->
     <text x="46" y="108" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="40" font-weight="800" letter-spacing="-0.6" fill="{theme["name"]}">Tianhao Su</text>
     <text x="272" y="106" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="15.5" font-weight="600" fill="{theme["handle"]}">@SuthPhy2Ai</text>
 
-    <!-- Core identity subtitle -->
     <text x="46" y="140" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="{theme["subtitle"]}">Physics × Deep Learning · First-Principles &amp; Autonomous Materials Discovery</text>
 
-    <!-- Terminal Typewriter Bar -->
     <rect x="46" y="166" width="582" height="40" rx="8" fill="{theme["term_bg"]}" stroke="{theme["term_border"]}" stroke-width="1.1" />
     <text x="58" y="191.5" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="13.5" font-weight="700" fill="{theme["prompt"]}">&gt;</text>
     {type_nodes}
 
-    <!-- Research Pillar Chips -->
     {chips_str}
-
-    <!-- Right Visual: Reciprocal Diffraction Rings + Spherical Harmonics + 3D ABO3 Crystal -->
-    <g>
-      <!-- Rotating outer reciprocal lattice ring -->
-      <g>
-        <circle cx="{cx:.1f}" cy="{cy:.1f}" r="108" fill="none" stroke="{theme["ring_outer"]}" stroke-opacity="0.28" stroke-width="1.1" stroke-dasharray="3 7" />
-        {bragg_str}
-        <animateTransform attributeName="transform" type="rotate" from="0 {cx:.1f} {cy:.1f}" to="360 {cx:.1f} {cy:.1f}" dur="48s" repeatCount="indefinite" />
-      </g>
-
-      <!-- Counter-rotating inner harmonic ring -->
-      <g>
-        <circle cx="{cx:.1f}" cy="{cy:.1f}" r="82" fill="none" stroke="{theme["ring_inner"]}" stroke-opacity="0.25" stroke-width="1.0" stroke-dasharray="2 5" />
-        <animateTransform attributeName="transform" type="rotate" from="360 {cx:.1f} {cy:.1f}" to="0 {cx:.1f} {cy:.1f}" dur="34s" repeatCount="indefinite" />
-      </g>
-
-      <!-- Analytical d_z2 spherical harmonic lobes (Y_2^0) -->
-      <path d="{pos_lobe_path}" fill="url(#lobePosGrad)" stroke="{theme["lobe_pos_1"]}" stroke-opacity="0.45" stroke-width="1.0">
-        <animate attributeName="opacity" values="0.72;1.0;0.72" dur="4.4s" repeatCount="indefinite" />
-      </path>
-      <path d="{neg_lobe_path}" fill="url(#lobeNegGrad)" stroke="{theme["lobe_neg_1"]}" stroke-opacity="0.40" stroke-width="1.0">
-        <animate attributeName="opacity" values="0.95;0.65;0.95" dur="4.4s" repeatCount="indefinite" />
-      </path>
-
-      <!-- 3D Perovskite ABO3 Unit Cell & E(3) Message Passing -->
-      {crystal_markup}
-    </g>
-
-    <!-- Bottom-right equivariant operator caption -->
-    <text x="{cx:.1f}" y="266" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="500" fill="{theme["formula"]}">
-      <tspan fill="{theme["formula_hi"]}" font-weight="700">E(3)</tspan> &#183; <tspan font-style="italic">Y</tspan><tspan dy="-4.2" font-size="8.5" font-style="italic">l,m</tspan><tspan dy="4.2">(</tspan><tspan font-style="italic">r&#770;</tspan><tspan dy="3" font-size="8.5" font-style="italic">ij</tspan><tspan dy="-3">) &#8855; </tspan><tspan font-style="italic">h</tspan><tspan dy="3" font-size="8.5" font-style="italic">j</tspan><tspan dy="-3"> &#8594; &#961;(</tspan><tspan font-style="italic">r</tspan><tspan>)</tspan>
-    </text>
   </g>
 
-  <!-- Crisp outer card border -->
   <rect x="1" y="1" width="998" height="282" rx="16" fill="none" stroke="{theme["border"]}" stroke-width="1.4" />
 </svg>
 '''
