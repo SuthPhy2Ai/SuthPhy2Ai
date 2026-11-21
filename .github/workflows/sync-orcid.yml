@@ -1,0 +1,38 @@
+name: Sync ORCID Publications
+
+on:
+  schedule:
+    # Check ORCID every Monday at 02:00 UTC (10:00 CST)
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch latest works from ORCID & update README.md
+        run: python3 scripts/sync_orcid.py
+
+      - name: Commit & push if publications changed
+        run: |
+          if git diff --quiet README.md; then
+            echo "No publication changes detected."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add README.md
+            git commit -m "chore(pubs): auto-sync latest publications from ORCID"
+            git push
+          fi

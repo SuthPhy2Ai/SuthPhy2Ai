@@ -1,0 +1,49 @@
+name: Generate Snake & 3D Crystal Contribution Graphs
+
+on:
+  schedule:
+    # Refresh every 12 hours (UTC)
+    - cron: "0 */12 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate Contribution Snake SVGs (Light & Dark)
+        uses: Platane/snk/svg-only@v3
+        with:
+          github_user_name: ${{ github.repository_owner }}
+          outputs: |
+            dist/github-snake.svg
+            dist/github-snake-dark.svg?palette=github-dark
+
+      - name: Generate 3D Isometric Contribution Lattice SVGs
+        uses: yoshi389111/github-profile-3d-contrib@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          USERNAME: ${{ github.repository_owner }}
+
+      - name: Stage 3D Contribution SVGs into dist/
+        run: |
+          mkdir -p dist/profile-3d-contrib
+          cp -r profile-3d-contrib/* dist/profile-3d-contrib/
+          ls -la dist/ dist/profile-3d-contrib/
+
+      - name: Deploy generated SVGs to isolated output branch
+        uses: crazy-max/ghaction-github-pages@v4
+        with:
+          target_branch: output
+          build_dir: dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
