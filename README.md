@@ -23,13 +23,9 @@
 
 <br />
 
-### 🔬 Research Focus
+### 👋 About Me
 
-I am a PhD researcher in **Materials Informatics** at **Shanghai University**, working at the intersection of **condensed-matter physics, first-principles calculations, and geometric deep learning**:
-
-- **⚛️ Neural Electronic Structure & Electrostatics** — Building `E(3)`-equivariant graph neural networks for sub-angstrom PAW charge density prediction (**DeePAW**) and electrostatic potential landscape reasoning.
-- **💎 Symmetry-Aware Crystal Generation & Diffraction Reconstruction** — Designing Wyckoff-constrained crystal generative models (**CGWGAN**) and physics-guided 2D structure reconstruction from diffraction patterns ([**DD2D**](https://github.com/SuthPhy2Ai/DD2D)).
-- **🚀 Autonomous Materials Discovery** — Combining active learning, Kolmogorov–Arnold contrastive pretraining, and DFT high-throughput screening for catalysts, superconductors, ferroelectrics, and functional alloys.
+I am a PhD candidate in Materials Informatics at Shanghai University, working at the intersection of condensed-matter physics, first-principles calculations, and geometric deep learning. My research focuses on developing symmetry-aware neural networks for electronic structure modeling, inverse crystal design, and autonomous materials discovery.
 
 ---
 
@@ -42,24 +38,13 @@ All interactive visualizers below run directly in the browser on GitHub Pages:
 | **🌐 E3NN Spherical Harmonics Visualizer** | Real-time interactive 3D rendering of (<i>l</i>, <i>m</i>) spherical harmonics basis functions in `E(3)`-equivariant neural networks | [![Launch](https://img.shields.io/badge/Launch_3D_Demo-0ea5e9?style=flat-square&logo=webgl&logoColor=white)](https://suthphy2ai.github.io/personal-website/e3nn-viz/) |
 | **⚡ DeePAW · Charge Density Predictor** | Sub-angstrom crystalline charge density representation integrating the PAW formalism with `E(3)`-equivariant GNNs | [![Launch](https://img.shields.io/badge/Launch_Demo-8b5cf6?style=flat-square&logo=atom&logoColor=white)](https://suthphy2ai.github.io/personal-website/deepaw/) |
 | **💎 CrystaLogic AI** | Deep-learning-assisted 3D crystal structure generation, symmetry inspection, and interactive unit-cell editing | [![Launch](https://img.shields.io/badge/Launch_Demo-10b981?style=flat-square&logo=codepen&logoColor=white)](https://suthphy2ai.github.io/personal-website/crystalogic-ai/) |
-| **📡 Diffraction · Vectorized Matter** | Crystallographic diffraction reconstruction & vectorized reciprocal-space exploration ([Code: `DD2D`](https://github.com/SuthPhy2Ai/DD2D)) | [![Launch](https://img.shields.io/badge/Launch_Demo-f59e0b?style=flat-square&logo=sparkles&logoColor=white)](https://suthphy2ai.github.io/personal-website/diffraction/) |
+| **📡 Diffraction · Vectorized Matter** | Crystallographic diffraction reconstruction and vectorized reciprocal-space exploration | [![Launch](https://img.shields.io/badge/Launch_Demo-f59e0b?style=flat-square&logo=sparkles&logoColor=white)](https://suthphy2ai.github.io/personal-website/diffraction/) |
 | **🧬 NeuroCell · Bio-Digital Interface** | Immersive neural-microscopic generative visual interface | [![Launch](https://img.shields.io/badge/Launch_Demo-ec4899?style=flat-square&logo=safari&logoColor=white)](https://suthphy2ai.github.io/personal-website/neurocell/) |
 
 ---
 
-### 🎮 Contribution Dynamics
+### 🧊 Contribution Field
 
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/SuthPhy2Ai/SuthPhy2Ai/output/github-snake-dark.svg" />
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/SuthPhy2Ai/SuthPhy2Ai/output/github-snake.svg" />
-    <img alt="Contribution Snake" src="https://raw.githubusercontent.com/SuthPhy2Ai/SuthPhy2Ai/output/github-snake.svg" width="100%" />
-  </picture>
-</div>
-
-<details open>
-<summary><b>🧊 3D Phonon Crystal-Lattice Contribution Field (Live Animated)</b></summary>
-<br />
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/SuthPhy2Ai/SuthPhy2Ai/output/crystal-lattice-dark.svg" />
@@ -67,7 +52,6 @@ All interactive visualizers below run directly in the browser on GitHub Pages:
     <img alt="3D Phonon Crystal-Lattice Contribution Field" src="https://raw.githubusercontent.com/SuthPhy2Ai/SuthPhy2Ai/output/crystal-lattice-dark.svg" width="100%" />
   </picture>
 </div>
-</details>
 
 ---
 
